@@ -15,7 +15,6 @@ Later we will also alow for the option to include trading costs by:
 using LinearAlgebra
 using JuMP
 using GLPK
-using SparseArrays
 using LinearAlgebra
 using Statistics
 
@@ -26,11 +25,10 @@ using LinearAlgebra
 using JuMP
 using GLPK
 using HiGHS
-using SparseArrays
 using LinearAlgebra
 using Statistics
 
-export f_alpha, optimize_portfolio_CVaR_const,optimize_portfolio_return_const, get_constraint_matrix_min_cvar,add_trading_costs,get_constraint_vector_trading_cost,update_portfolio_weights
+export update_portfolio_weights_new
 
 function f_alpha(l, simulations, alpha; probabilities=false, probability_list_=0)
     N = length(simulations)
@@ -50,19 +48,19 @@ end
 function get_constraint_matrix_risk_budget(simulations,alpha_;short=true)
     n = size(simulations,2) #num_assets
     m= size(simulations,1) #num_sim
-    custom_matrix = sparse(ones(m, 1))
+    custom_matrix = ones(m, 1)
     multiplier = short ? 2 : 1
 
-    risk_row = sparse([zeros(multiplier * n); 1.0; fill(1/(m*(1-alpha_)), m);])
+    risk_row = [zeros(multiplier * n); 1.0; fill(1/(m*(1-alpha_)), m);]
     if short
         left_part = hcat(simulations, -simulations)
         custom_matrix = hcat(left_part, custom_matrix)
-        weights_row = sparse([ones(n); -ones(n); 0.0; zeros(m)])
+        weights_row = [ones(n); -ones(n); 0.0; zeros(m)]
     else
         custom_matrix = hcat(-simulations, custom_matrix)
-        weights_row = sparse([0.0; zeros(m); ones(n)])
+        weights_row = [0.0; zeros(m); ones(n)]
     end
-    custom_matrix = hcat(custom_matrix, spdiagm(0 => ones(m)))
+    custom_matrix = hcat(custom_matrix, I(m))
     custom_matrix = vcat(custom_matrix, transpose(risk_row))
     custom_matrix = vcat(custom_matrix, transpose(weights_row))
 
@@ -104,22 +102,22 @@ end
 function get_constraint_matrix_min_cvar(simulations, alpha; short=true)
     n = size(simulations, 2) # num_assets
     m = size(simulations, 1) # num_sim
-    custom_matrix = sparse(ones(m, 1))
+    custom_matrix = ones(m, 1)
     means = mean(-simulations, dims=1) #minus since we assume the simulations are losses
     means = reshape(means, n)
     
     if short
         left_part = hcat(simulations, -simulations)
         custom_matrix = hcat(left_part, custom_matrix)
-        weights_row = sparse([ones(n); -ones(n); 0.0; zeros(m)])
-        return_row = sparse([means; -means; 0.0; zeros(m)])
+        weights_row = [ones(n); -ones(n); 0.0; zeros(m)]
+        return_row = [means; -means; 0.0; zeros(m)]
     else
         custom_matrix = hcat(-simulations, custom_matrix)
-        weights_row = sparse([0.0; zeros(m); ones(n)])
-        return_row = sparse([means; 0.0; zeros(m)])
+        weights_row = [0.0; zeros(m); ones(n)]
+        return_row = [means; 0.0; zeros(m)]
     end
     
-    custom_matrix = hcat(custom_matrix, spdiagm(0 => ones(m)))
+    custom_matrix = hcat(custom_matrix, I(m))
     custom_matrix = vcat(custom_matrix, transpose(return_row))
     custom_matrix = vcat(custom_matrix, transpose(weights_row))
 
@@ -132,7 +130,7 @@ function optimize_portfolio_return_const(scenario::Matrix{Float64}, alpha_::Floa
     constraint_matrix = get_constraint_matrix_min_cvar(scenario, alpha_, short = short)
     multiplier = short ? 2 : 1
 
-    cost_vector = sparse([zeros(multiplier * num_assets); 1.0; fill(1/(num_sim*(1-alpha_)), num_sim);])
+    cost_vector = [zeros(multiplier * num_assets); 1.0; fill(1/(num_sim*(1-alpha_)), num_sim);]
 
     m = Model(HiGHS.Optimizer)
     num_variables = multiplier * num_assets + num_sim + 1
@@ -166,9 +164,9 @@ function add_trading_costs(constraint_matrix , n_sim ,n_assets , risk_role = "co
     
     #3 0 block and identity [(2*n_assets) x n_sim, I_k], k =2*n_assets
     b3_l = zeros(2*n_assets,(n_sim+1)) #+1 to account for VaR variable
-    b3_r = spdiagm(0 => ones(2*n_assets))
+    b3_r = I(2*n_assets)
     #4 if shorting [[-I_k, I_k], [I_k, -I_k]], k=n_assets, else [[-I_k],[I_k]]
-    I_k = spdiagm(0 => ones(n_assets))  # Sparse identity matrix of size k
+    I_k = I(n_assets)
     if shorting 
         top_block = hcat(-I_k, I_k)
         bottom_block = hcat(I_k, -I_k)
@@ -253,8 +251,9 @@ function update_portfolio_weights(old_weights :: Vector{Float64}, scenario :: Ma
         constraint_matrix = vcat(get_constraint_matrix_min_cvar(scenario, alpha_, short = short_)[1:end-1, :]+vcat(
                 -trading_costs_*hcat(ones(n_sim,n_assets),ones(n_sim,n_assets),zeros(n_sim,n_sim+1)), #plus one for the var variable
                 transpose(zeros(2*n_assets+1+n_sim))),
+
                 hcat((1+trading_costs_)*transpose(ones(n_assets)),
-                (-1+trading_costs_)*transpose(ones(n_assets)),transpose(zeros(1+n_sim)))
+                (-1+trading_costs_)*transpose(ones(n_assets)),transpose(zeros(1+n_sim))) 
                 )
 
     else
@@ -309,5 +308,107 @@ function update_portfolio_weights(old_weights :: Vector{Float64}, scenario :: Ma
 
 end
 
+
+
+function update_portfolio_weights_new(old_weights, scenario, risk = 9999, return_ = 9999, short_ = true, trading_costs_ = 0.02, alpha_ = 0.95)
+    if risk == 9999 && return_ == 9999
+        println("Must choose either risk level or return level")
+        return
+    end
+    
+    num_assets = size(scenario, 2)
+    num_sim = size(scenario, 1)
+        
+    # Prepare cost vector
+    mean_scenario = mean(scenario, dims=1)
+    mean_scenario_vec = vec(mean_scenario)
+    
+    if short_
+        old_loss = -scenario*old_weights[1:num_assets]+scenario*old_weights[num_assets+1:2*num_assets]
+        var_index = 2*num_assets +1
+        cost_vector = Vector{Float64}(undef, 2 * num_assets + 1 + num_sim)
+        cost_vector[1:num_assets] .= -mean_scenario_vec .- trading_costs_ #Long gives expected return minus trading cost
+        cost_vector[num_assets+1:2*num_assets] .= mean_scenario_vec .- trading_costs_ #Going short gives expected loss - trading cost
+        cost_vector[2*num_assets+1] = 0
+        cost_vector[2*num_assets+2:end] .= 0
+
+         #Initialize matrix
+        constraint_matrix = zeros(Float64, num_sim + 2, 2 * num_assets + 1 + num_sim)
+        #Aux var rows
+        constraint_matrix[1:num_sim, 1:num_assets] .= scenario #view_matrix
+        constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] .= -scenario
+        constraint_matrix[1:num_sim, 2*num_assets+1] .= -ones(num_sim)
+        constraint_matrix[1:num_sim, 2*num_assets+2 : end] .= I(num_sim)
+        constraint_matrix[1:num_sim, 1:2*num_assets] .+= -trading_costs_ * ones(num_sim, 2 * num_assets)
+        #CVaR row
+        constraint_matrix[1:num_sim+1,1:2*num_assets] .=0
+        constraint_matrix[1:num_sim+1,2*num_assets+1] .=1 #VaR variable
+        constraint_matrix[1:num_sim+1,2*num_assets+1:end] .=1/(num_sim *(1-alpha_)) 
+        #Self financing row
+        constraint_matrix[num_sim+2, 1:end] .= 0
+        constraint_matrix[num_sim+2, 1:num_assets] .= (1 + trading_costs_)
+        constraint_matrix[num_sim+2, num_assets+1:2*num_assets] .= (-1 + trading_costs_)
+        constraint_matrix[num_sim+2, 2*num_assets+1:end] .= 0
+        
+    else
+        println("This option is not working, do short")
+        var_index = num_assets+1
+        cost_vector = Vector{Float64}(undef, num_assets + 1 + num_sim)
+        cost_vector[1:num_assets] .= -mean_scenario_vec .- trading_costs_
+        cost_vector[num_assets+1] = 0
+        cost_vector[num_assets+2:end] .= 0
+
+        cvar_matrix = get_constraint_matrix_risk_budget(scenario, alpha_, short=short_)
+        view_matrix = view(cvar_matrix, 1:size(cvar_matrix, 1), :)
+        constraint_matrix = zeros(Float64, num_sim + 2, num_assets + 1 + num_sim)
+        constraint_matrix[1:num_sim, 1:num_assets] .= view_matrix
+        constraint_matrix[1:num_sim, num_assets+1:end] .= 0
+        constraint_matrix[num_sim+1, 1:num_assets] .= trading_costs_
+        constraint_matrix[num_sim+1, num_assets+1:end] .= 0
+        constraint_matrix[num_sim+2, 1:end] .= 0
+    end
+
+    
+    # Model
+    m = Model(GLPK.Optimizer)
+    num_variables = length(cost_vector)
+
+    @variable(m, x[1:num_variables])
+    
+    for i in 1:num_variables
+        if i != var_index
+            @constraint(m, x[i] >= 0)
+        end
+    end
+
+    @objective(m, Max, dot(cost_vector, x))
+
+    level_index = num_sim + 1
+    constraint_vector = zeros(size(constraint_matrix,2))
+    constraint_vector[1:num_sim] += old_loss
+    constraint_vector[num_sim+1] += risk
+    #constraint_vector[self_fin_index] = 0 #Not needed sinze it is initialized as 0
+    self_fin_index = size(constraint_vector, 1)
+
+    for i in 1:self_fin_index
+        constraint_row_view = view(constraint_matrix, i, :)
+        if i == level_index
+            if risk != 9999
+                @constraint(m, dot(constraint_row_view, x) <= constraint_vector[i])
+            else
+                @constraint(m, dot(constraint_row_view, x) >= constraint_vector[i])
+            end
+        elseif i == self_fin_index
+            @constraint(m, dot(constraint_row_view, x) <= 0)
+        else
+            @constraint(m, dot(constraint_row_view, x) <= constraint_vector[i])
+        end
+    end
+
+    optimize!(m)
+    updates = JuMP.value.(x)
+    new_weights = old_weights + updates[1:num_assets * (short_ ? 2 : 1)]
+    return new_weights, updates
+end
 
 end  # End of the module block
