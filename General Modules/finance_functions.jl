@@ -10,8 +10,11 @@
 
 module finance_functions
 using TSFrames, MarketData, DataFrames, Dates,Plots
+using LinearAlgebra
+using Distributions
 
-export get_adjclose_dataframe, compute_relative_returns
+
+export get_adjclose_dataframe, compute_relative_returns,sample_mv_t
 
 
 
@@ -82,6 +85,37 @@ function compute_relative_returns(df::DataFrame)
     end
     
     return returns_df
+end
+
+
+# Generalized function to sample from a multivariate t-distribution
+function sample_mv_t(ν, μ, Σ, n_sim)
+    d = size(Σ, 1)  # Dimension of the covariance matrix (number of assets)
+
+    # Ensure the covariance matrix is symmetric
+    Σ_symmetric = 0.5 * (Σ + Σ')
+    
+    # Add a small value to the diagonal to ensure positive definiteness
+    λ = 1e-6
+    Σ_regularized = Σ_symmetric + λ * I(d)
+
+    # Sample from the multivariate normal distribution with covariance Σ
+    Z = rand(MvNormal(Σ_regularized), n_sim)  # Z is d x n
+    
+    # Sample from a chi-squared distribution with degrees of freedom ν
+    W = rand(Chisq(ν), n_sim)  # W is a vector of length n_sim
+    
+    # Preallocate the scaled Z matrix
+    Z_scaled = zeros(size(Z))
+    
+    # Scale each column of Z by the corresponding entry in W
+    for j in 1:n_sim
+        scaling_factor = sqrt(W[j]) / sqrt(ν)
+        Z_scaled[:, j] = Z[:, j] * scaling_factor
+    end
+    
+    # Add the mean vector μ (broadcasting to match dimensions)
+    return μ .+ Z_scaled
 end
 
 end

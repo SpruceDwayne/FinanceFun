@@ -33,7 +33,7 @@ end
 
 
 
-function optimize_portfolio_CVaR_const(scenario, risk = 0.02, short_ = true, alpha_ = 0.9)
+function optimize_portfolio_CVaR_const(scenario, risk = 0.02, alpha_ = 0.9, short_ = true)
     num_assets = size(scenario, 2)
     num_sim = size(scenario, 1)
         
@@ -123,7 +123,7 @@ function optimize_portfolio_CVaR_const(scenario, risk = 0.02, short_ = true, alp
 end
 
 
-function optimize_portfolio_return_const(scenario::Matrix{Float64}, alpha_::Float64; mean_return = 0.005, short_ = true)
+function optimize_portfolio_return_const(scenario, alpha_, mean_return = 0.005, short_ = true)
     num_assets = size(scenario, 2)
     num_sim = size(scenario, 1)
         
@@ -306,7 +306,7 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
 
     level_index = num_sim + 1
     constraint_vector = zeros(size(constraint_matrix,1))
-    constraint_vector[1:num_sim] += old_loss
+    constraint_vector[1:num_sim] += -old_loss
     constraint_vector[num_sim+1] += risk
     #constraint_vector[self_fin_index] = 0 #Not needed sinze it is initialized as 0
     self_fin_index = size(constraint_vector, 1)

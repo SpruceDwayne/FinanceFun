@@ -1,6 +1,4 @@
 CVaR parts:
-1. Min cvar with return constraint
-2. function for making efficient frontier
 3. Index tracking
 
 Modelling parts:

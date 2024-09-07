@@ -9,11 +9,11 @@ using CSV
 using TSFrames, MarketData, DataFrames, Dates,Plots
 
 
-tickers = ["SPY","TLT","DBC","SHY","NVO","AAPL","LLY","AMD","NVDA","MSFT","AMZN"]
+tickers = ["SPY","TLT","DBC","SHY","NVO","AAPL","LLY","AMD","NVDA","MSFT","AMZN","^STOXX"]
 start_date = DateTime(2010, 8, 1)
-end_date = DateTime(2020, 8, 20)
-df =DataFrame( get_adjclose_dataframe(tickers, start_date, end_date))
-df = compute_relative_returns(df)
+end_date = DateTime(2024, 8, 20)
+df =DataFrame( get_adjclose_dataframe(tickers, start_date, end_date,"1d"))
+df = compute_relative_returns(dropmissing(df))
 matrix_data = Matrix(df)
 
 # Define the function to get the efficient frontier
@@ -52,10 +52,10 @@ end
 
 # Example usage:
 scenario = matrix_data  # Your scenario matrix (rows are simulations, cols are assets)
-alpha_ = 0.95           # CVaR confidence level
+alpha_ = 0.0           # CVaR confidence level
 
 # Get efficient frontier
-frontier_returns, frontier_risks = get_efficient_frontier(scenario[1:end,2:end], alpha_, false, 100)
+frontier_returns, frontier_risks = get_efficient_frontier(scenario[1:end,2:end], alpha_, false, 5)
 
 
 scatter(frontier_risks, frontier_returns, 
