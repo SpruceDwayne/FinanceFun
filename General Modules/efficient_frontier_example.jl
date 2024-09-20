@@ -11,7 +11,7 @@ using TSFrames, MarketData, DataFrames, Dates,Plots
 
 tickers = ["SPY","TLT","DBC","SHY","NVO","AAPL","LLY","AMD","NVDA","MSFT","AMZN","^STOXX"]
 start_date = DateTime(2010, 8, 1)
-end_date = DateTime(2024, 8, 20)
+end_date = DateTime(2024, 6, 20)
 df =DataFrame( get_adjclose_dataframe(tickers, start_date, end_date,"1d"))
 df = compute_relative_returns(dropmissing(df))
 matrix_data = Matrix(df)
