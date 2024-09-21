@@ -8,22 +8,21 @@
 7. Intra day data hopefully
 =#
 
-module finance_functions
-using TSFrames, MarketData, DataFrames, Dates,Plots
+module FinanceFunctions
+
+using TSFrames, MarketData, DataFrames, Dates, Plots
 using LinearAlgebra
 using Distributions
 
 
-export get_adjclose_dataframe, compute_relative_returns,sample_mv_t
+export get_adjclose_dataframe, compute_relative_returns, sample_mv_t
 
-
-
-function get_adjclose_dataframe(tickers = ["SPY","TLT","DBC"], start_date::DateTime = Datetime(2024,1,1), end_date:: DateTime = DateTime(2024,7,1),interval = "1mo")
+function get_adjclose_dataframe(tickers = ["SPY","TLT","DBC"], start_date::DateTime = DateTime(2024,1,1), end_date:: DateTime = DateTime(2024,7,1),interval = "1mo")
     # Define the YahooOpt struct for date range and interval
     
     options = MarketData.YahooOpt(
         period1 = start_date,
-        period2 =end_date ,
+        period2 = end_date,
         interval = interval,   # Daily data
         events = :history
     )
@@ -88,7 +87,6 @@ function compute_relative_returns(df::DataFrame)
 end
 
 
-
 # Generalized function to sample from a multivariate t-distribution
 function sample_mv_t(ν, μ, Σ, n_sim)
     d = size(Σ, 1)  # Dimension of the covariance matrix (number of assets)
@@ -119,4 +117,4 @@ function sample_mv_t(ν, μ, Σ, n_sim)
     return μ .+ Z_scaled
 end
 
-end
+end # module

@@ -7,13 +7,12 @@ Later there will also be functions for using CVaR for index tracking
 
 
 
-module CVaR_functions
+module CVaRFunctions
 
 using LinearAlgebra
+using Statistics
 using JuMP
 using GLPK
-using LinearAlgebra
-using Statistics
 
 export update_portfolio_weights, optimize_portfolio_CVaR_const, optimize_portfolio_return_const
 
@@ -69,7 +68,7 @@ function optimize_portfolio_CVaR_const(scenario, risk = 0.02, alpha_ = 0.9, shor
         cost_vector = Vector{Float64}(undef, num_assets + 1 + num_sim)
         cost_vector[1:num_assets] .= -mean_scenario_vec 
          #Initialize matrix
-         constraint_matrix = zeros( num_sim + 2, num_assets + 1 + num_sim)
+         constraint_matrix = Matrix{Float64}(undef, num_sim + 2, num_assets + 1 + num_sim)
          #Aux var rows
          constraint_matrix[1:num_sim, 1:num_assets] = scenario 
          constraint_matrix[1:num_sim, num_assets+1] = -ones(num_sim)
@@ -133,13 +132,13 @@ function optimize_portfolio_return_const(scenario, alpha_, mean_return = 0.005, 
     old_loss = zeros(num_sim)
     if short_
         var_index = 2*num_assets +1
-        cost_vector = zeros( 2 * num_assets + 1 + num_sim)
+        cost_vector = Vector{Float64}(undef, 2 * num_assets + 1 + num_sim)
         cost_vector[1:2*num_assets] .=0
         cost_vector[2*num_assets+1] =1 
         cost_vector[2*num_assets+2:end] .=1/(num_sim *(1-alpha_)) 
 
          #Initialize matrix
-        constraint_matrix = zeros( num_sim + 2, 2*num_assets + 1 + num_sim)
+        constraint_matrix = Matrix{Float64}(undef, num_sim + 2, 2*num_assets + 1 + num_sim)
         #Aux var rows
         constraint_matrix[1:num_sim, 1:num_assets] = scenario #view_matrix
         constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] = -scenario
@@ -157,12 +156,12 @@ function optimize_portfolio_return_const(scenario, alpha_, mean_return = 0.005, 
         
     else
         var_index = num_assets+1
-        cost_vector = zeros(num_assets + 1 + num_sim)
+        cost_vector = Vector{Float64}(undef, num_assets + 1 + num_sim)
         cost_vector[1:num_assets] .=0
         cost_vector[num_assets+1] =1
         cost_vector[num_assets+2 : end ] .=1/(num_sim *(1-alpha_)) *ones(num_sim)
         #Initialize matrix
-        constraint_matrix = zeros( num_sim + 2, num_assets + 1 + num_sim)
+        constraint_matrix = Matrix{Float64}(undef, num_sim + 2, num_assets + 1 + num_sim)
         #Aux var rows
         constraint_matrix[1:num_sim, 1:num_assets] = scenario 
         constraint_matrix[1:num_sim, num_assets+1] = -ones(num_sim)
@@ -231,21 +230,17 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
     #if short_
         old_loss = -scenario*old_weights[1:num_assets]+scenario*old_weights[num_assets+1:2*num_assets]
         var_index = 2*num_assets +1
-        #cost_vector = Vector{Float64}(undef, 2 * num_assets + 1 + num_sim)
-        cost_vector = fill(0.0, 2 * num_assets + 1 + num_sim)
-
+        cost_vector = Vector{Float64}(undef, 2 * num_assets + 1 + num_sim)
         cost_vector[1:num_assets] .= -mean_scenario_vec .- trading_costs_ #Long gives expected return minus trading cost
         cost_vector[num_assets+1:2*num_assets] .= mean_scenario_vec .- trading_costs_ #Going short gives expected loss - trading cost
         cost_vector[2*num_assets+1] = 0
         cost_vector[2*num_assets+2:end] .= 0
 
          #Initialize matrix
-        #constraint_matrix = Matrix{Float64}(undef, num_sim + 2, 2*num_assets + 1 + num_sim)
-        constraint_matrix = zeros(num_sim + 2, 2 * num_assets + 1 + num_sim)  
-
+        constraint_matrix = Matrix{Float64}(undef, num_sim + 2, 2*num_assets + 1 + num_sim)
         #Aux var rows
-        constraint_matrix[1:num_sim, 1:num_assets] .= scenario #-trading_costs_ * ones(num_sim,  num_assets)
-        constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] = -scenario #-trading_costs_ * ones(num_sim,  num_assets)
+        constraint_matrix[1:num_sim, 1:num_assets] .= scenario -trading_costs_ * ones(num_sim,  num_assets)
+        constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] = -scenario -trading_costs_ * ones(num_sim,  num_assets)
         constraint_matrix[1:num_sim, 2*num_assets+1] .= -ones(num_sim)
         constraint_matrix[1:num_sim, 2*num_assets+2 : end] .= Matrix(1.0I, num_sim, num_sim)
         #CVaR row
@@ -336,4 +331,4 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
     return new_weights, updates
 end
 
-end  # End of the module block
+end # module
