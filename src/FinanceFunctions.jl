@@ -109,7 +109,7 @@ function sample_mv_t(ν, μ, Σ, n_sim)
     
     # Scale each column of Z by the corresponding entry in W
     for j in 1:n_sim
-        scaling_factor = sqrt(W[j]) / sqrt(ν)
+        scaling_factor = sqrt(ν)/sqrt(W[j]) 
         Z_scaled[:, j] = Z[:, j] * scaling_factor
     end
     

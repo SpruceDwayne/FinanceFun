@@ -219,6 +219,10 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
         println("Must choose either risk level or return level")
         return
     end
+    if any(x -> x < -0.01, old_weights)
+        println("--------------------------------")
+        error("The vector contains negative values.")
+    end
     
     num_assets = size(scenario, 2)
     num_sim = size(scenario, 1)
@@ -239,8 +243,8 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
          #Initialize matrix
         constraint_matrix = Matrix{Float64}(undef, num_sim + 2, 2*num_assets + 1 + num_sim)
         #Aux var rows
-        constraint_matrix[1:num_sim, 1:num_assets] .= scenario -trading_costs_ * ones(num_sim,  num_assets)
-        constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] = -scenario -trading_costs_ * ones(num_sim,  num_assets)
+        constraint_matrix[1:num_sim, 1:num_assets] .= scenario #-trading_costs_ * ones(num_sim,  num_assets)
+        constraint_matrix[1:num_sim, num_assets+1: 2*num_assets] = -scenario #-trading_costs_ * ones(num_sim,  num_assets)
         constraint_matrix[1:num_sim, 2*num_assets+1] .= -ones(num_sim)
         constraint_matrix[1:num_sim, 2*num_assets+2 : end] .= Matrix(1.0I, num_sim, num_sim)
         #CVaR row
@@ -281,7 +285,7 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
     num_variables = length(cost_vector)
 
     @variable(m, x[1:num_variables])
-
+    ##############Rethink the constraints below. How to make sure weights dont explode####################
     if short_
         for i in 1 :num_variables
             if i != var_index
@@ -296,7 +300,11 @@ function update_portfolio_weights(old_weights, scenario, risk = 9999, return_ = 
         end
         for i in num_assets+1 : 2*num_assets#1:num_assets
             #@constraint(m, x[i] >= -old_weights[i] )
-            @constraint(m, x[i] <= old_weights[i-num_assets] )
+            @constraint(m, x[i] <= old_weights[i-num_assets]-0.00001 )
+        end
+        for i in 1:num_assets
+            @constraint(m, x[i] <= 1-old_weights[i] )
+           # @constraint(m, x[i] <= old_weights[i-num_assets] )
         end
     end
     

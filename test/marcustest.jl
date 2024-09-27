@@ -75,3 +75,7 @@ new_weights, updates = update_portfolio_weights(current_weights,-_returns[1:end,
 println(new_weights[1:n]-new_weights[n+1 : 2*n])
 new_weights, updates = update_portfolio_weights(current_weights,-_returns[1:end,1:end],0.05,9999,false,0.0000000001,0.95)
 println(new_weights[1:n]-new_weights[n+1 : 2*n])
+
+
+
+
