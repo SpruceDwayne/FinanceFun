@@ -1,7 +1,10 @@
-include("CVaR_functions.jl")
-include("finance_functions.jl")
-using .CVaR_functions
-using .finance_functions
+# Add Revise for development
+using Revise
+
+# Internal
+using FinanceFun
+
+# External
 using LinearAlgebra
 using Statistics
 using SparseArrays
@@ -9,9 +12,10 @@ using CSV
 using TSFrames, MarketData, DataFrames, Dates,Plots
 
 
-tickers = ["SPY","TLT","DBC","SHY","NVO","AAPL","LLY","AMD","NVDA","MSFT","AMZN","^STOXX"]
+tickers = ["SPY","TLT","DBC","SHY","NVO","AAPL","LLY","AMD","NVDA","MSFT","AMZN"]
 start_date = DateTime(2010, 8, 1)
 end_date = DateTime(2024, 6, 20)
+
 df =DataFrame( get_adjclose_dataframe(tickers, start_date, end_date,"1d"))
 df = compute_relative_returns(dropmissing(df))
 matrix_data = Matrix(df)
@@ -34,9 +38,9 @@ function get_efficient_frontier(scenario, alpha_,
     # Step 2: Optimize for each return level
     for mean_return in return_levels
         # Optimize portfolio for the given return level
-        optimized_weights, risk_ = optimize_portfolio_return_const(-scenario, alpha_;
-                                                            mean_return=mean_return, 
-                                                            short_=short_)
+        optimized_weights, risk_ = optimize_portfolio_return_const(-scenario, alpha_,
+                                                            mean_return, 
+                                                            short_)
         # Calculate the return and risk for the optimized portfolio
         portfolio_return = dot(optimized_weights[1:size(scenario,2)], vec(mean_returns))  # Portfolio return
         portfolio_risk = risk_  # Portfolio risk (std deviation)
@@ -52,16 +56,16 @@ end
 
 # Example usage:
 scenario = matrix_data  # Your scenario matrix (rows are simulations, cols are assets)
-alpha_ = 0.0           # CVaR confidence level
+alpha_ = 0.95           # CVaR confidence level
 
 # Get efficient frontier
-frontier_returns, frontier_risks = get_efficient_frontier(scenario[1:end,2:end], alpha_, false, 5)
+frontier_returns, frontier_risks = get_efficient_frontier(scenario[1:end,2:end], alpha_, false, 100)
 
-
+#Note this wont work if you have Plotly loaded as it interferes with Plots package
 scatter(frontier_risks, frontier_returns, 
-        xlabel="1month CVaR95)", 
+        xlabel="1day CVaR95)", 
         ylabel="Return", 
         title="Efficient Frontier", 
-        legend=false,
-        markersize=5,  # Size of the points
-        markerstrokewidth=0.5)  # Thickness of the outline of each point
+        )  # Thickness of the outline of each point
+
+

@@ -1,6 +1,11 @@
-include("finance_functions.jl")
-using .finance_functions
-using Statistics
+
+# Add Revise for development
+using Revise
+
+# Internal
+using FinanceFun
+
+# Externalusing Statistics
 using TSFrames, MarketData, DataFrames, Dates,Plots
 using ARCHModels
 using Random

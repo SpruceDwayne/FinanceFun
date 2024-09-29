@@ -116,6 +116,7 @@ Plot(
     x=:Date, y=:Value, color=:Asset
 )
 
+#Now investigate correlations
 function log_returns(values::AbstractVector{<:Real})
     return [NaN; log.(values[2:end] ./ values[1:end-1])]
 end
