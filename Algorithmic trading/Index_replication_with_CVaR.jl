@@ -230,4 +230,23 @@ plot_cumulative_returns(cumulative_returns, spy_cum,df.Index[52:end])
 
 
 
-all_relative_returns
+function compute_var(returns, alpha=0.95)
+    # Compute the 5th percentile VaR (which is 1 - alpha percentile)
+    VaR = quantile(returns, 1 - alpha)
+    return VaR
+end
+
+# Example usage:
+
+# Compute VaR for the portfolio (all_relative_returns)
+var_portfolio = compute_var(all_relative_returns, 0.99)
+
+# Compute VaR for SPY starting from the 2nd year onwards (row 52:end)
+spy_relative_returns = spy_matrix[52:end, 1]  # Assuming SPY returns are in the first column
+var_spy = compute_var(spy_relative_returns, 0.99)
+
+println("95% VaR for Portfolio: ", var_portfolio)
+println("95% VaR for SPY: ", var_spy)
+
+minimum(spy_matrix[52:end,:])
+minimum(all_relative_returns)
