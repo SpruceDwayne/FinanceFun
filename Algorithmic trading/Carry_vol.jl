@@ -1,0 +1,1 @@
+####Once I get price data on options I'll make a script pretending to sell put and call options whil money printers go brrrr

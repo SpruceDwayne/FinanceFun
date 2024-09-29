@@ -24,7 +24,6 @@ df = dropmissing(df_price)
 df = compute_relative_returns(df)
 
 matrix_data = Array{Float64, 2}(Matrix(df)[:,2:end]) 
-matrix_data = Array{Float64, 2}(Matrix(df)[:, 2:end])
 #We also add some cash position with some neglegable noise if one had money in all cash during the period total gain would be 0.1%
 matrix_data = hcat(matrix_data, 0.00002 .+ (0.00002 - 0.00001) .* rand(size(matrix_data, 1)))
 
